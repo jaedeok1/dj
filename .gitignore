@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# MediaPipe WASM (large binary files - loaded from CDN)
+public/wasm/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
