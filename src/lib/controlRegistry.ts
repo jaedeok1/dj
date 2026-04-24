@@ -1,12 +1,13 @@
 export interface ControlEntry {
-  id:       string
-  type:     'slider-h' | 'slider-v' | 'knob'
-  label:    string
-  min:      number
-  max:      number
-  getValue: () => number
-  setValue: (v: number) => void
-  getRect:  () => DOMRect | null
+  id:         string
+  type:       'slider-h' | 'slider-v' | 'knob' | 'turntable'
+  label:      string
+  min:        number
+  max:        number
+  getValue:   () => number
+  setValue:   (v: number) => void
+  onRelease?: () => void
+  getRect:    () => DOMRect | null
 }
 
 const registry = new Map<string, ControlEntry>()

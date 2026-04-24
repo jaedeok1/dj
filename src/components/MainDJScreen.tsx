@@ -1,7 +1,7 @@
 import { BookOpen, Settings } from 'lucide-react'
 import { useDJStore } from '../store/djStore'
 import { Deck } from './Deck'
-import { Crossfader } from './Crossfader'
+import { Mixer } from './Mixer'
 import { EffectPad } from './EffectPad'
 import { MotionCamera } from './MotionCamera'
 import { MotionCursorOverlay } from './MotionCursorOverlay'
@@ -22,7 +22,7 @@ export function MainDJScreen() {
       flexDirection: 'column',
       overflow: 'hidden',
     }}>
-      {/* Top bar */}
+      {/* Header */}
       <header style={{
         padding: '10px 16px',
         display: 'flex',
@@ -42,91 +42,64 @@ export function MainDJScreen() {
           }}>
             MOTION DJ
           </h1>
-          {/* Camera status dot */}
-          <span style={{
-            fontSize: '10px',
-            color: qualityColor,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-          }}>
+          <span style={{ fontSize: '10px', color: qualityColor, display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span style={{
-              width: 7, height: 7,
-              borderRadius: '50%',
-              background: qualityColor,
-              display: 'inline-block',
+              width: 7, height: 7, borderRadius: '50%',
+              background: qualityColor, display: 'inline-block',
               boxShadow: motionEnabled ? `0 0 6px ${qualityColor}` : 'none',
             }} />
-            {motionEnabled ? '모션 ON' : '카메라 초기화 중…'}
+            {motionEnabled ? '모션 ON' : '카메라 로딩…'}
           </span>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={() => setScreen('tutorial')}
-            style={{
-              width: 32, height: 32,
-              borderRadius: '8px',
-              background: 'transparent',
-              border: '1px solid #27273B',
-              cursor: 'pointer',
-              color: '#6B7280',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            aria-label="튜토리얼"
-          >
+          <button onClick={() => setScreen('tutorial')} style={iconBtn} aria-label="튜토리얼">
             <BookOpen size={14} />
           </button>
-          <button
-            onClick={() => setScreen('calibration')}
-            style={{
-              width: 32, height: 32,
-              borderRadius: '8px',
-              background: 'transparent',
-              border: '1px solid #27273B',
-              cursor: 'pointer',
-              color: '#6B7280',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            aria-label="설정"
-          >
+          <button onClick={() => setScreen('calibration')} style={iconBtn} aria-label="설정">
             <Settings size={14} />
           </button>
         </div>
       </header>
 
-      {/* Main content */}
+      {/* 3-column layout: Deck A | Mixer | Deck B */}
       <div style={{
         flex: 1,
         overflowY: 'auto',
         padding: '12px',
         display: 'grid',
-        gap: '12px',
-        gridTemplateColumns: '1fr 1fr',
+        gap: '10px',
+        gridTemplateColumns: 'minmax(0, 1fr) 170px minmax(0, 1fr)',
+        gridTemplateRows: 'auto auto',
         alignContent: 'start',
       }}>
+        {/* Row 1 */}
         <Deck deckId="A" />
+        <Mixer />
         <Deck deckId="B" />
 
-        {/* Crossfader - full width */}
-        <div style={{ gridColumn: '1 / -1' }}>
-          <Crossfader />
-        </div>
-
-        {/* Effects - full width */}
+        {/* Row 2: Effects full width */}
         <div style={{ gridColumn: '1 / -1' }}>
           <EffectPad />
         </div>
       </div>
 
-      {/* Hidden camera element (auto-starts motion tracking) */}
+      {/* Hidden camera auto-starts motion tracking */}
       <MotionCamera />
 
       {/* Full-screen hand cursor overlay */}
       <MotionCursorOverlay />
     </div>
   )
+}
+
+const iconBtn: React.CSSProperties = {
+  width: 32, height: 32,
+  borderRadius: '8px',
+  background: 'transparent',
+  border: '1px solid #27273B',
+  cursor: 'pointer',
+  color: '#6B7280',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 }

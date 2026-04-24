@@ -11,21 +11,23 @@ const MODEL_URL =
 
 interface GrabState {
   controlId:  string
-  startAngle: number
+  startX:     number   // index-tip screen px when grab started
+  startY:     number
+  startAngle: number   // for knobs
   startValue: number
 }
 
 export function useMotionTracking(videoRef: React.RefObject<HTMLVideoElement | null>) {
-  const landmarkerRef   = useRef<HandLandler | null>(null)
-  const rafRef          = useRef<number>(0)
-  const runningRef      = useRef(false)
-  const lastTimeRef     = useRef(-1)
-  const streamRef       = useRef<MediaStream | null>(null)
-  const initDoneRef     = useRef(false)
-  const wasPinchLeft    = useRef(false)
-  const wasPinchRight   = useRef(false)
-  const grabLeftRef     = useRef<GrabState | null>(null)
-  const grabRightRef    = useRef<GrabState | null>(null)
+  const landmarkerRef  = useRef<HandLandler | null>(null)
+  const rafRef         = useRef<number>(0)
+  const runningRef     = useRef(false)
+  const lastTimeRef    = useRef(-1)
+  const streamRef      = useRef<MediaStream | null>(null)
+  const initDoneRef    = useRef(false)
+  const wasPinchLeft   = useRef(false)
+  const wasPinchRight  = useRef(false)
+  const grabLeftRef    = useRef<GrabState | null>(null)
+  const grabRightRef   = useRef<GrabState | null>(null)
 
   const processFrame = useCallback(() => {
     if (!runningRef.current) return
@@ -53,7 +55,7 @@ export function useMotionTracking(videoRef: React.RefObject<HTMLVideoElement | n
 
     const store = useDJStore.getState()
 
-    // Sort detected hands by x position (leftmost = screen-left)
+    // Sort by x (leftmost = screen-left)
     let leftLm:  typeof result.landmarks[0] | null = null
     let rightLm: typeof result.landmarks[0] | null = null
 
@@ -67,14 +69,14 @@ export function useMotionTracking(videoRef: React.RefObject<HTMLVideoElement | n
       rightLm = sorted[1]
     }
 
-    // Mirror x to match CSS-mirrored video
+    // Mirror x to match CSS scaleX(-1) video
     const mirrorLm = (lm: typeof result.landmarks[0]) =>
       lm.map(p => ({ ...p, x: 1 - p.x }))
 
     const leftMirrored  = leftLm  ? mirrorLm(leftLm)  : null
     const rightMirrored = rightLm ? mirrorLm(rightLm) : null
 
-    // Pinch detection with hysteresis — save previous state first
+    // Pinch with hysteresis — save previous state first
     const wasLeft  = wasPinchLeft.current
     const wasRight = wasPinchRight.current
     const leftPinch  = leftMirrored  ? isPinching(leftMirrored,  wasLeft)  : false
@@ -82,14 +84,13 @@ export function useMotionTracking(videoRef: React.RefObject<HTMLVideoElement | n
     wasPinchLeft.current  = leftPinch
     wasPinchRight.current = rightPinch
 
-    // Quality + hand data → store (for overlay rendering)
     store.setMotionQuality(calcMotionQuality(leftMirrored ?? rightMirrored))
     store.setHandsData({ left: leftMirrored, right: rightMirrored, leftPinch, rightPinch })
 
-    // ── Hit test: which control is the index finger over? ──
     const W = window.innerWidth
     const H = window.innerHeight
 
+    // Hit test: which control is the index finger over?
     const hitTest = (lm: HandLandmark[] | null): string | null => {
       if (!lm) return null
       const ix = lm[8].x * W
@@ -111,42 +112,92 @@ export function useMotionTracking(videoRef: React.RefObject<HTMLVideoElement | n
     const hoveredLeft  = hitTest(leftMirrored)
     const hoveredRight = hitTest(rightMirrored)
 
-    // ── Grab + rotate logic ──
+    // Grab + rotate/drag logic
     const applyGrab = (
-      pinch:    boolean,
+      pinch:   boolean,
       wasPinch: boolean,
-      hovered:  string | null,
-      grabRef:  React.MutableRefObject<GrabState | null>,
-      lm:       HandLandmark[] | null,
+      hovered: string | null,
+      grabRef: React.MutableRefObject<GrabState | null>,
+      lm:      HandLandmark[] | null,
     ) => {
+      // Pinch started: record grab
       if (!wasPinch && pinch && hovered) {
         const ctrl = controlRegistry.get(hovered)
         if (ctrl && lm) {
           grabRef.current = {
             controlId:  ctrl.id,
+            startX:     lm[8].x * W,
+            startY:     lm[8].y * H,
             startAngle: handAngle(lm),
             startValue: ctrl.getValue(),
           }
         }
       }
-      if (!pinch) { grabRef.current = null; return }
+
+      // Pinch released: call onRelease then clear
+      if (!pinch) {
+        if (grabRef.current) {
+          controlRegistry.get(grabRef.current.controlId)?.onRelease?.()
+        }
+        grabRef.current = null
+        return
+      }
       if (!grabRef.current || !lm) return
 
-      const { controlId, startAngle, startValue } = grabRef.current
+      const { controlId, startX, startY, startAngle, startValue } = grabRef.current
       const ctrl = controlRegistry.get(controlId)
       if (!ctrl) return
 
-      const angle = handAngle(lm)
-      let delta   = angle - startAngle
-      while (delta >  Math.PI) delta -= 2 * Math.PI
-      while (delta < -Math.PI) delta += 2 * Math.PI
-      const range  = ctrl.max - ctrl.min
-      const newVal = Math.min(ctrl.max, Math.max(ctrl.min,
-        startValue + (delta / (2 * Math.PI)) * range / 0.5
-      ))
+      let newVal: number
+
+      if (ctrl.type === 'knob') {
+        // Wrist rotation
+        const angle = handAngle(lm)
+        let delta   = angle - startAngle
+        while (delta >  Math.PI) delta -= 2 * Math.PI
+        while (delta < -Math.PI) delta += 2 * Math.PI
+        const range = ctrl.max - ctrl.min
+        newVal = Math.min(ctrl.max, Math.max(ctrl.min,
+          startValue + (delta / (2 * Math.PI)) * range / 0.5
+        ))
+      } else if (ctrl.type === 'slider-h') {
+        // Horizontal drag: move by slider width = full range
+        const dx   = lm[8].x * W - startX
+        const rect = ctrl.getRect()
+        const w    = rect ? Math.max(rect.width, 60) : 200
+        newVal = Math.min(ctrl.max, Math.max(ctrl.min,
+          startValue + (dx / w) * (ctrl.max - ctrl.min)
+        ))
+      } else if (ctrl.type === 'slider-v') {
+        // Vertical drag: move up = increase (inverted y)
+        const dy   = lm[8].y * H - startY
+        const rect = ctrl.getRect()
+        const h    = rect ? Math.max(rect.height, 60) : 150
+        newVal = Math.min(ctrl.max, Math.max(ctrl.min,
+          startValue - (dy / h) * (ctrl.max - ctrl.min)
+        ))
+      } else if (ctrl.type === 'turntable') {
+        // Scratch: horizontal movement, very responsive
+        const dx     = lm[8].x * W - startX
+        const rect   = ctrl.getRect()
+        const radius = rect ? rect.width / 2 : 90
+        // Moving 1 radius = ±1.5 speed change from normal
+        newVal = Math.min(ctrl.max, Math.max(ctrl.min,
+          1.0 + (dx / radius) * 1.5
+        ))
+      } else {
+        return
+      }
+
       ctrl.setValue(newVal)
-      const pct = Math.round((newVal - ctrl.min) / range * 100)
-      store.setPinchLabel(`${ctrl.label} ${pct}%`)
+
+      const range = ctrl.max - ctrl.min
+      if (ctrl.type === 'turntable') {
+        store.setPinchLabel(`스크래치 ×${newVal.toFixed(1)}`)
+      } else {
+        const pct = Math.round((newVal - ctrl.min) / range * 100)
+        store.setPinchLabel(`${ctrl.label} ${pct}%`)
+      }
     }
 
     applyGrab(leftPinch,  wasLeft,  hoveredLeft,  grabLeftRef,  leftMirrored)

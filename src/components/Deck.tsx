@@ -3,37 +3,35 @@ import { Play, Pause, Music } from 'lucide-react'
 import type { DeckId } from '../store/djStore'
 import { useDJStore } from '../store/djStore'
 import { Waveform } from './Waveform'
-import { Knob } from './Knob'
 import { DemoTrackPanel } from './DemoTrackPanel'
 import { useAudioEngine } from '../hooks/useAudioEngine'
 import { controlRegistry } from '../lib/controlRegistry'
+import { audioEngine } from '../lib/audioEngine'
 
-interface Props {
-  deckId: DeckId
-}
+interface Props { deckId: DeckId }
 
 const DECK_COLOR = { A: '#22C55E', B: '#4338CA' }
 const DECK_LABEL = { A: 'DECK A', B: 'DECK B' }
 
 export function Deck({ deckId }: Props) {
-  const { decks, setDeckVolume, setDeckEQ } = useDJStore()
+  const { decks } = useDJStore()
   const deck = decks[deckId]
   const { loadTrack, togglePlay } = useAudioEngine()
-  const fileRef    = useRef<HTMLInputElement>(null)
-  const volDivRef  = useRef<HTMLDivElement>(null)
-  const volValRef  = useRef(deck.volume)
-  volValRef.current = deck.volume
+  const fileRef      = useRef<HTMLInputElement>(null)
+  const turntableRef = useRef<HTMLDivElement>(null)
+  const scratchRef   = useRef(1.0)
   const color = DECK_COLOR[deckId]
 
   useEffect(() => {
-    const id = `vol-${deckId}`
+    const id = `scratch-${deckId}`
     controlRegistry.register(id, {
-      id, type: 'slider-v',
-      label: `덱 ${deckId} 볼륨`,
-      min: 0, max: 1,
-      getValue: () => volValRef.current,
-      setValue: (v) => setDeckVolume(deckId, v),
-      getRect:  () => volDivRef.current?.getBoundingClientRect() ?? null,
+      id, type: 'turntable',
+      label: `덱 ${deckId} 스크래치`,
+      min: 0.05, max: 3.5,
+      getValue: () => 1.0,  // always start scratch from normal speed
+      setValue: (v) => { scratchRef.current = v; audioEngine.scratch(deckId, v) },
+      onRelease: () => { scratchRef.current = 1.0; audioEngine.scratch(deckId, 1.0) },
+      getRect: () => turntableRef.current?.getBoundingClientRect() ?? null,
     })
     return () => controlRegistry.unregister(id)
   }, [deckId])
@@ -58,10 +56,10 @@ export function Deck({ deckId }: Props) {
       background: '#1a1a2e',
       border: `1px solid ${color}30`,
       borderRadius: '12px',
-      padding: '16px',
+      padding: '14px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '14px',
+      gap: '12px',
       boxShadow: `0 0 24px ${color}15`,
     }}>
       {/* Header */}
@@ -74,38 +72,53 @@ export function Deck({ deckId }: Props) {
         )}
       </div>
 
-      {/* Turntable */}
+      {/* Turntable — big, scratchable */}
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <div style={{
-          width: 110,
-          height: 110,
-          borderRadius: '50%',
-          background: `radial-gradient(circle at 30% 30%, #2d2d4e, #0a0a1a)`,
-          border: `3px solid ${color}`,
-          boxShadow: `0 0 24px ${color}40`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-          animation: deck.isPlaying ? 'spin-platter 2s linear infinite' : 'none',
-        }}>
+        <div
+          ref={turntableRef}
+          style={{
+            width: 'clamp(120px, 85%, 200px)',
+            aspectRatio: '1',
+            borderRadius: '50%',
+            background: `radial-gradient(circle at 30% 30%, #2d2d4e, #0a0a1a)`,
+            border: `4px solid ${color}`,
+            boxShadow: `0 0 32px ${color}50, inset 0 0 20px ${color}10`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+            animation: deck.isPlaying ? 'spin-platter 2s linear infinite' : 'none',
+            cursor: 'crosshair',
+          }}
+        >
           <div style={{
-            width: 22,
-            height: 22,
+            width: 26,
+            height: 26,
             borderRadius: '50%',
             background: '#0F0F23',
             border: `2px solid ${color}80`,
           }} />
-          {[32, 45, 58].map((r) => (
+          {[30, 42, 56, 70, 82].map((r) => (
             <div key={r} style={{
               position: 'absolute',
-              width: r * 2,
-              height: r * 2,
+              width: `${r}%`,
+              height: `${r}%`,
               borderRadius: '50%',
-              border: `1px solid ${color}15`,
+              border: `1px solid ${color}12`,
               pointerEvents: 'none',
             }} />
           ))}
+          {/* Scratch label */}
+          <div style={{
+            position: 'absolute',
+            bottom: '18%',
+            fontSize: '9px',
+            color: `${color}60`,
+            letterSpacing: '1px',
+            fontFamily: 'Righteous',
+          }}>
+            SCRATCH
+          </div>
         </div>
       </div>
 
@@ -129,14 +142,13 @@ export function Deck({ deckId }: Props) {
       {/* Waveform */}
       <Waveform deckId={deckId} color={color} />
 
-      {/* Controls row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        {/* Play/Pause */}
+      {/* Controls */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around' }}>
         <button
           onClick={() => togglePlay(deckId)}
           style={{
-            width: 52,
-            height: 52,
+            width: 56,
+            height: 56,
             borderRadius: '50%',
             background: deck.isPlaying ? color : 'transparent',
             border: `2px solid ${color}`,
@@ -146,32 +158,13 @@ export function Deck({ deckId }: Props) {
             cursor: 'pointer',
             color: deck.isPlaying ? '#0F0F23' : color,
             transition: 'all 0.15s',
-            boxShadow: deck.isPlaying ? `0 0 16px ${color}60` : 'none',
-            flexShrink: 0,
+            boxShadow: deck.isPlaying ? `0 0 20px ${color}60` : 'none',
           }}
           aria-label={deck.isPlaying ? '일시정지' : '재생'}
         >
-          {deck.isPlaying ? <Pause size={22} /> : <Play size={22} />}
+          {deck.isPlaying ? <Pause size={24} /> : <Play size={24} />}
         </button>
 
-        {/* Volume fader */}
-        <div ref={volDivRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-          <span style={{ fontSize: '10px', color: '#9ca3af' }}>VOL</span>
-          <input
-            type="range"
-            className="vertical-slider"
-            min={0}
-            max={1}
-            step={0.01}
-            value={deck.volume}
-            onChange={(e) => setDeckVolume(deckId, parseFloat(e.target.value))}
-            style={{ height: '80px', accentColor: color }}
-            aria-label="볼륨"
-          />
-          <span style={{ fontSize: '10px', color, fontWeight: 600 }}>{Math.round(deck.volume * 100)}</span>
-        </div>
-
-        {/* Load track */}
         <button
           onClick={() => fileRef.current?.click()}
           style={{
@@ -185,48 +178,13 @@ export function Deck({ deckId }: Props) {
             justifyContent: 'center',
             cursor: 'pointer',
             color: '#9ca3af',
-            transition: 'all 0.15s',
-            flexShrink: 0,
           }}
           aria-label="트랙 불러오기"
         >
           <Music size={18} />
         </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="audio/*"
-          style={{ display: 'none' }}
-          onChange={handleFileChange}
-        />
-      </div>
-
-      {/* EQ Knobs */}
-      <div style={{ display: 'flex', justifyContent: 'space-around', paddingTop: '4px' }}>
-        <Knob
-          id={`eq-${deckId}-high`}
-          label="HI"
-          value={deck.eq.high}
-          onChange={(v) => setDeckEQ(deckId, 'high', v)}
-          color={color}
-          size={52}
-        />
-        <Knob
-          id={`eq-${deckId}-mid`}
-          label="MID"
-          value={deck.eq.mid}
-          onChange={(v) => setDeckEQ(deckId, 'mid', v)}
-          color={color}
-          size={52}
-        />
-        <Knob
-          id={`eq-${deckId}-low`}
-          label="LOW"
-          value={deck.eq.low}
-          onChange={(v) => setDeckEQ(deckId, 'low', v)}
-          color={color}
-          size={52}
-        />
+        <input ref={fileRef} type="file" accept="audio/*"
+          style={{ display: 'none' }} onChange={handleFileChange} />
       </div>
 
       {/* Demo tracks */}
