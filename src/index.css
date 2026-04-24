@@ -1,0 +1,92 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Righteous&display=swap');
+@import "tailwindcss";
+
+:root {
+  --color-primary: #1E1B4B;
+  --color-secondary: #4338CA;
+  --color-accent: #22C55E;
+  --color-background: #0F0F23;
+  --color-foreground: #F8FAFC;
+  --color-muted: #27273B;
+  --color-border: #312E81;
+  --color-destructive: #EF4444;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: 'Poppins', sans-serif;
+  margin: 0;
+  overflow: hidden;
+  user-select: none;
+}
+
+h1, h2, h3 {
+  font-family: 'Righteous', cursive;
+}
+
+#root {
+  width: 100%;
+  height: 100dvh;
+}
+
+.glow-green {
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.4);
+}
+
+.glow-indigo {
+  box-shadow: 0 0 12px rgba(67, 56, 202, 0.5);
+}
+
+.text-glow {
+  text-shadow: 0 0 10px currentColor;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  background: var(--color-border);
+  height: 4px;
+  border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--color-accent);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  margin-top: -5px;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+}
+
+input[type="range"].vertical-slider {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 4px;
+  height: 80px;
+}
+
+@keyframes spin-platter {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
