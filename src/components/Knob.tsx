@@ -1,8 +1,10 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
+import { controlRegistry } from '../lib/controlRegistry'
 
 interface Props {
+  id?: string
   label: string
-  value: number      // -1 to 1 or 0 to 1
+  value: number
   min?: number
   max?: number
   onChange: (val: number) => void
@@ -10,13 +12,29 @@ interface Props {
   size?: number
 }
 
-export function Knob({ label, value, min = -1, max = 1, onChange, color = '#22C55E', size = 44 }: Props) {
-  const dragging = useRef(false)
-  const startY = useRef(0)
-  const startVal = useRef(value)
+export function Knob({ id, label, value, min = -1, max = 1, onChange, color = '#22C55E', size = 52 }: Props) {
+  const domRef    = useRef<HTMLDivElement>(null)
+  const dragging  = useRef(false)
+  const startY    = useRef(0)
+  const startVal  = useRef(value)
+  const valueRef  = useRef(value)
+  const changeRef = useRef(onChange)
+  valueRef.current  = value
+  changeRef.current = onChange
+
+  useEffect(() => {
+    if (!id) return
+    controlRegistry.register(id, {
+      id, type: 'knob', label, min, max,
+      getValue: () => valueRef.current,
+      setValue: (v) => changeRef.current(v),
+      getRect:  () => domRef.current?.getBoundingClientRect() ?? null,
+    })
+    return () => controlRegistry.unregister(id)
+  }, [id, label, min, max])
 
   const normalized = (value - min) / (max - min)
-  const angle = -140 + normalized * 280  // -140deg to +140deg
+  const angle = -140 + normalized * 280
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     dragging.current = true
@@ -39,7 +57,7 @@ export function Knob({ label, value, min = -1, max = 1, onChange, color = '#22C5
   }, [value, min, max, onChange])
 
   return (
-    <div className="flex flex-col items-center gap-1" style={{ cursor: 'ns-resize' }}>
+    <div ref={domRef} className="flex flex-col items-center gap-1" style={{ cursor: 'ns-resize' }}>
       <div
         onMouseDown={onMouseDown}
         style={{
@@ -50,19 +68,18 @@ export function Knob({ label, value, min = -1, max = 1, onChange, color = '#22C5
           transform: `rotate(-140deg)`,
           border: '2px solid #312E81',
           position: 'relative',
-          boxShadow: `0 0 8px ${color}40`,
+          boxShadow: `0 0 10px ${color}40`,
           userSelect: 'none',
         }}
       >
-        {/* indicator */}
         <div style={{
           position: 'absolute',
-          top: '6px',
+          top: '7px',
           left: '50%',
           transform: `translateX(-50%) rotate(${angle + 140}deg)`,
-          transformOrigin: '1px 16px',
+          transformOrigin: '1px 18px',
           width: '2px',
-          height: '8px',
+          height: '10px',
           background: '#F8FAFC',
           borderRadius: '1px',
         }} />

@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 import { Play, Pause, Music } from 'lucide-react'
 import type { DeckId } from '../store/djStore'
 import { useDJStore } from '../store/djStore'
@@ -6,6 +6,7 @@ import { Waveform } from './Waveform'
 import { Knob } from './Knob'
 import { DemoTrackPanel } from './DemoTrackPanel'
 import { useAudioEngine } from '../hooks/useAudioEngine'
+import { controlRegistry } from '../lib/controlRegistry'
 
 interface Props {
   deckId: DeckId
@@ -18,8 +19,24 @@ export function Deck({ deckId }: Props) {
   const { decks, setDeckVolume, setDeckEQ } = useDJStore()
   const deck = decks[deckId]
   const { loadTrack, togglePlay } = useAudioEngine()
-  const fileRef = useRef<HTMLInputElement>(null)
+  const fileRef    = useRef<HTMLInputElement>(null)
+  const volDivRef  = useRef<HTMLDivElement>(null)
+  const volValRef  = useRef(deck.volume)
+  volValRef.current = deck.volume
   const color = DECK_COLOR[deckId]
+
+  useEffect(() => {
+    const id = `vol-${deckId}`
+    controlRegistry.register(id, {
+      id, type: 'slider-v',
+      label: `덱 ${deckId} 볼륨`,
+      min: 0, max: 1,
+      getValue: () => volValRef.current,
+      setValue: (v) => setDeckVolume(deckId, v),
+      getRect:  () => volDivRef.current?.getBoundingClientRect() ?? null,
+    })
+    return () => controlRegistry.unregister(id)
+  }, [deckId])
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -33,7 +50,7 @@ export function Deck({ deckId }: Props) {
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
-  const elapsed = deck.duration * deck.progress
+  const elapsed   = deck.duration * deck.progress
   const remaining = deck.duration - elapsed
 
   return (
@@ -44,12 +61,12 @@ export function Deck({ deckId }: Props) {
       padding: '16px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '12px',
-      boxShadow: `0 0 20px ${color}15`,
+      gap: '14px',
+      boxShadow: `0 0 24px ${color}15`,
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontFamily: 'Righteous', color, fontSize: '13px', letterSpacing: '2px' }}>
+        <span style={{ fontFamily: 'Righteous', color, fontSize: '14px', letterSpacing: '2px' }}>
           {DECK_LABEL[deckId]}
         </span>
         {deck.bpm > 0 && (
@@ -59,30 +76,27 @@ export function Deck({ deckId }: Props) {
 
       {/* Turntable */}
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <div
-          style={{
-            width: 100,
-            height: 100,
-            borderRadius: '50%',
-            background: `radial-gradient(circle at 30% 30%, #2d2d4e, #0a0a1a)`,
-            border: `3px solid ${color}`,
-            boxShadow: `0 0 20px ${color}40`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
-            animation: deck.isPlaying ? 'spin-platter 2s linear infinite' : 'none',
-          }}
-        >
+        <div style={{
+          width: 110,
+          height: 110,
+          borderRadius: '50%',
+          background: `radial-gradient(circle at 30% 30%, #2d2d4e, #0a0a1a)`,
+          border: `3px solid ${color}`,
+          boxShadow: `0 0 24px ${color}40`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+          animation: deck.isPlaying ? 'spin-platter 2s linear infinite' : 'none',
+        }}>
           <div style={{
-            width: 20,
-            height: 20,
+            width: 22,
+            height: 22,
             borderRadius: '50%',
             background: '#0F0F23',
             border: `2px solid ${color}80`,
           }} />
-          {/* grooves */}
-          {[30, 42, 54].map((r) => (
+          {[32, 45, 58].map((r) => (
             <div key={r} style={{
               position: 'absolute',
               width: r * 2,
@@ -104,7 +118,6 @@ export function Deck({ deckId }: Props) {
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
-          maxWidth: '100%',
         }}>
           {deck.trackName}
         </div>
@@ -122,8 +135,8 @@ export function Deck({ deckId }: Props) {
         <button
           onClick={() => togglePlay(deckId)}
           style={{
-            width: 44,
-            height: 44,
+            width: 52,
+            height: 52,
             borderRadius: '50%',
             background: deck.isPlaying ? color : 'transparent',
             border: `2px solid ${color}`,
@@ -133,16 +146,17 @@ export function Deck({ deckId }: Props) {
             cursor: 'pointer',
             color: deck.isPlaying ? '#0F0F23' : color,
             transition: 'all 0.15s',
-            boxShadow: deck.isPlaying ? `0 0 12px ${color}60` : 'none',
+            boxShadow: deck.isPlaying ? `0 0 16px ${color}60` : 'none',
+            flexShrink: 0,
           }}
           aria-label={deck.isPlaying ? '일시정지' : '재생'}
         >
-          {deck.isPlaying ? <Pause size={18} /> : <Play size={18} />}
+          {deck.isPlaying ? <Pause size={22} /> : <Play size={22} />}
         </button>
 
         {/* Volume fader */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-          <span style={{ fontSize: '9px', color: '#9ca3af' }}>VOL</span>
+        <div ref={volDivRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+          <span style={{ fontSize: '10px', color: '#9ca3af' }}>VOL</span>
           <input
             type="range"
             className="vertical-slider"
@@ -151,10 +165,10 @@ export function Deck({ deckId }: Props) {
             step={0.01}
             value={deck.volume}
             onChange={(e) => setDeckVolume(deckId, parseFloat(e.target.value))}
-            style={{ height: '60px', accentColor: color }}
+            style={{ height: '80px', accentColor: color }}
             aria-label="볼륨"
           />
-          <span style={{ fontSize: '9px', color: '#9ca3af' }}>{Math.round(deck.volume * 100)}</span>
+          <span style={{ fontSize: '10px', color, fontWeight: 600 }}>{Math.round(deck.volume * 100)}</span>
         </div>
 
         {/* Load track */}
@@ -172,10 +186,11 @@ export function Deck({ deckId }: Props) {
             cursor: 'pointer',
             color: '#9ca3af',
             transition: 'all 0.15s',
+            flexShrink: 0,
           }}
           aria-label="트랙 불러오기"
         >
-          <Music size={16} />
+          <Music size={18} />
         </button>
         <input
           ref={fileRef}
@@ -187,27 +202,30 @@ export function Deck({ deckId }: Props) {
       </div>
 
       {/* EQ Knobs */}
-      <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-around', paddingTop: '4px' }}>
         <Knob
+          id={`eq-${deckId}-high`}
           label="HI"
           value={deck.eq.high}
           onChange={(v) => setDeckEQ(deckId, 'high', v)}
           color={color}
-          size={36}
+          size={52}
         />
         <Knob
+          id={`eq-${deckId}-mid`}
           label="MID"
           value={deck.eq.mid}
           onChange={(v) => setDeckEQ(deckId, 'mid', v)}
           color={color}
-          size={36}
+          size={52}
         />
         <Knob
+          id={`eq-${deckId}-low`}
           label="LOW"
           value={deck.eq.low}
           onChange={(v) => setDeckEQ(deckId, 'low', v)}
           color={color}
-          size={36}
+          size={52}
         />
       </div>
 

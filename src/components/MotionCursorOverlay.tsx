@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useDJStore, type HandLandmark } from '../store/djStore'
+import { controlRegistry } from '../lib/controlRegistry'
 
 const CONNECTIONS: [number, number][] = [
   [0,1],[1,2],[2,3],[3,4],
@@ -10,7 +11,6 @@ const CONNECTIONS: [number, number][] = [
   [0,17],[0,5],
 ]
 
-// Finger tip indices
 const TIPS = [4, 8, 12, 16, 20]
 
 export function MotionCursorOverlay() {
@@ -23,7 +23,11 @@ export function MotionCursorOverlay() {
     let animId: number
 
     const draw = () => {
-      const { handsData, motionEnabled, pinchLabel } = useDJStore.getState()
+      const {
+        handsData, motionEnabled, pinchLabel,
+        hoveredControlLeft, hoveredControlRight,
+        grabbedControlLeft, grabbedControlRight,
+      } = useDJStore.getState()
       const W = window.innerWidth
       const H = window.innerHeight
 
@@ -40,14 +44,25 @@ export function MotionCursorOverlay() {
         return
       }
 
+      // ── Control highlights (under hand overlay) ──
+      drawControlHighlight(ctx, hoveredControlLeft,  '#22C55E', false)
+      drawControlHighlight(ctx, hoveredControlRight, '#818CF8', false)
+      drawControlHighlight(ctx, grabbedControlLeft,  '#22C55E', true)
+      drawControlHighlight(ctx, grabbedControlRight, '#818CF8', true)
+
+      // ── Grab lines: finger tip → grabbed control ──
+      drawGrabLine(ctx, handsData.left,  grabbedControlLeft,  W, H)
+      drawGrabLine(ctx, handsData.right, grabbedControlRight, W, H)
+
+      // ── Hand skeleton + cursor ──
       drawHandOnScreen(ctx, handsData.left,  '#22C55E', handsData.leftPinch,  W, H)
       drawHandOnScreen(ctx, handsData.right, '#818CF8', handsData.rightPinch, W, H)
 
-      // Pinch label HUD — bottom-center of screen
+      // ── Pinch label HUD ──
       const anyPinch = handsData.leftPinch || handsData.rightPinch
       if (anyPinch && pinchLabel) {
-        const text  = `✊  ${pinchLabel}`
-        const padX  = 18
+        const text = `✊  ${pinchLabel}`
+        const padX = 18
         ctx.font = 'bold 13px Poppins, sans-serif'
         const tw = ctx.measureText(text).width
         const bx = W / 2 - tw / 2 - padX
@@ -55,7 +70,6 @@ export function MotionCursorOverlay() {
         const bw = tw + padX * 2
         const bh = 28
 
-        // pill background
         ctx.beginPath()
         roundRect(ctx, bx, by, bw, bh, bh / 2)
         ctx.fillStyle = '#FBBF2420'
@@ -64,7 +78,6 @@ export function MotionCursorOverlay() {
         ctx.lineWidth = 1
         ctx.stroke()
 
-        // text
         ctx.fillStyle = '#FBBF24'
         ctx.textBaseline = 'middle'
         ctx.fillText(text, bx + padX, by + bh / 2)
@@ -88,6 +101,79 @@ export function MotionCursorOverlay() {
       }}
     />
   )
+}
+
+function drawControlHighlight(
+  ctx: CanvasRenderingContext2D,
+  id: string | null,
+  color: string,
+  grabbed: boolean,
+) {
+  if (!id) return
+  const ctrl = controlRegistry.get(id)
+  if (!ctrl) return
+  const rect = ctrl.getRect()
+  if (!rect) return
+
+  const pad = grabbed ? 10 : 5
+  const x = rect.left - pad
+  const y = rect.top  - pad
+  const w = rect.width  + pad * 2
+  const h = rect.height + pad * 2
+  const r = Math.min(14, Math.min(w, h) / 2)
+
+  ctx.beginPath()
+  roundRect(ctx, x, y, w, h, r)
+
+  if (grabbed) {
+    ctx.fillStyle = '#FBBF2412'
+    ctx.fill()
+    ctx.strokeStyle = '#FBBF24CC'
+    ctx.lineWidth = 2.5
+    ctx.stroke()
+
+    ctx.beginPath()
+    roundRect(ctx, x - 7, y - 7, w + 14, h + 14, r + 5)
+    ctx.strokeStyle = '#FBBF2450'
+    ctx.lineWidth = 1
+    ctx.setLineDash([5, 4])
+    ctx.stroke()
+    ctx.setLineDash([])
+  } else {
+    ctx.fillStyle = `${color}0C`
+    ctx.fill()
+    ctx.strokeStyle = `${color}80`
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+  }
+}
+
+function drawGrabLine(
+  ctx: CanvasRenderingContext2D,
+  lm: HandLandmark[] | null,
+  controlId: string | null,
+  W: number,
+  H: number,
+) {
+  if (!lm || !controlId) return
+  const ctrl = controlRegistry.get(controlId)
+  if (!ctrl) return
+  const rect = ctrl.getRect()
+  if (!rect) return
+
+  const ix = lm[8].x * W
+  const iy = lm[8].y * H
+  const cx = rect.left + rect.width  / 2
+  const cy = rect.top  + rect.height / 2
+
+  ctx.beginPath()
+  ctx.moveTo(ix, iy)
+  ctx.lineTo(cx, cy)
+  ctx.strokeStyle = '#FBBF2455'
+  ctx.lineWidth = 1.5
+  ctx.setLineDash([4, 4])
+  ctx.stroke()
+  ctx.setLineDash([])
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -116,7 +202,6 @@ function drawHandOnScreen(
   const px = (lm: HandLandmark) => lm.x * W
   const py = (lm: HandLandmark) => lm.y * H
 
-  // ── skeleton ──
   ctx.lineWidth = 1.5
   ctx.strokeStyle = `${color}50`
   for (const [a, b] of CONNECTIONS) {
@@ -126,13 +211,11 @@ function drawHandOnScreen(
     ctx.stroke()
   }
 
-  // ── all landmark dots ──
   for (let i = 0; i < landmarks.length; i++) {
-    const isTip  = TIPS.includes(i)
-    const isThumb = i === 4
-    const isIndex = i === 8
+    const isTip     = TIPS.includes(i)
+    const isThumb   = i === 4
+    const isIndex   = i === 8
     const pinchFinger = (isThumb || isIndex) && pinching
-
     const r = isTip ? 5 : 3
 
     ctx.beginPath()
@@ -141,24 +224,21 @@ function drawHandOnScreen(
     ctx.fill()
   }
 
-  // ── INDEX TIP: main pointer cursor ──
+  // Index tip: main pointer cursor
   const idx = landmarks[8]
   const ix = px(idx), iy = py(idx)
 
-  // outer ring
   ctx.beginPath()
   ctx.arc(ix, iy, pinching ? 14 : 18, 0, Math.PI * 2)
   ctx.strokeStyle = pinching ? '#FBBF24CC' : `${color}CC`
   ctx.lineWidth = pinching ? 2.5 : 1.5
   ctx.stroke()
 
-  // inner fill
   ctx.beginPath()
   ctx.arc(ix, iy, pinching ? 6 : 5, 0, Math.PI * 2)
   ctx.fillStyle = pinching ? '#FBBF24' : color
   ctx.fill()
 
-  // glow
   const glow = ctx.createRadialGradient(ix, iy, 0, ix, iy, pinching ? 30 : 24)
   glow.addColorStop(0, pinching ? '#FBBF2440' : `${color}30`)
   glow.addColorStop(1, 'transparent')
@@ -167,7 +247,7 @@ function drawHandOnScreen(
   ctx.fillStyle = glow
   ctx.fill()
 
-  // ── THUMB TIP: secondary dot ──
+  // Thumb tip: secondary dot
   const thumb = landmarks[4]
   const tx = px(thumb), ty = py(thumb)
   ctx.beginPath()
@@ -175,7 +255,7 @@ function drawHandOnScreen(
   ctx.fillStyle = pinching ? '#FBBF24' : `${color}AA`
   ctx.fill()
 
-  // ── PINCH: arc + distance line ──
+  // Pinch indicator
   const mx = (ix + tx) / 2
   const my = (iy + ty) / 2
   const dist = Math.hypot(ix - tx, iy - ty)

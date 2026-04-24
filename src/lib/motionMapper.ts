@@ -29,8 +29,7 @@ const pinchState = { left: fresh(), right: fresh() }
 
 function fresh(): PinchState { return { active: false, startAngle: 0, startValue: 0 } }
 
-/** Returns the dial angle using wrist-to-index-MCP as "12 o'clock" reference */
-function handAngle(lm: HandLandmark[]): number {
+export function handAngle(lm: HandLandmark[]): number {
   // Use vector from wrist(0) to index MCP(5) — stable rotation reference
   return Math.atan2(lm[5].y - lm[0].y, lm[5].x - lm[0].x)
 }

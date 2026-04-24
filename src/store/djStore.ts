@@ -35,8 +35,11 @@ export interface DJState {
   showCamera:      boolean
   screen:          'calibration' | 'tutorial' | 'main'
   handsData:       HandsData
-  // current pinch-controlled value label
-  pinchLabel:      string
+  pinchLabel:          string
+  hoveredControlLeft:  string | null
+  hoveredControlRight: string | null
+  grabbedControlLeft:  string | null
+  grabbedControlRight: string | null
 
   setDeckPlaying:    (deck: DeckId, playing: boolean) => void
   setDeckVolume:     (deck: DeckId, vol: number) => void
@@ -54,10 +57,10 @@ export interface DJState {
   setCalibrated:     (v: boolean) => void
   setShowCamera:     (v: boolean) => void
   setScreen:         (s: DJState['screen']) => void
-  setHandsData:      (d: HandsData) => void
-  setPinchLabel:     (label: string) => void
-  // kept for backward compat
-  setHandPositions:  (left: { x: number; y: number } | null, right: { x: number; y: number } | null) => void
+  setHandsData:        (d: HandsData) => void
+  setPinchLabel:       (label: string) => void
+  setHandControlState: (hand: 'left' | 'right', hovered: string | null, grabbed: string | null) => void
+  setHandPositions:    (left: { x: number; y: number } | null, right: { x: number; y: number } | null) => void
 }
 
 const defaultDeck = (): DeckState => ({
@@ -83,8 +86,12 @@ export const useDJStore = create<DJState>((set) => ({
   calibrated:      false,
   showCamera:      true,
   screen:          'calibration',
-  handsData:       { left: null, right: null, leftPinch: false, rightPinch: false },
-  pinchLabel:      '',
+  handsData:           { left: null, right: null, leftPinch: false, rightPinch: false },
+  pinchLabel:          '',
+  hoveredControlLeft:  null,
+  hoveredControlRight: null,
+  grabbedControlLeft:  null,
+  grabbedControlRight: null,
 
   setDeckPlaying:    (deck, playing) =>
     set((s) => ({ decks: { ...s.decks, [deck]: { ...s.decks[deck], isPlaying: playing } } })),
@@ -110,7 +117,11 @@ export const useDJStore = create<DJState>((set) => ({
   setCalibrated:     (v) => set({ calibrated: v }),
   setShowCamera:     (v) => set({ showCamera: v }),
   setScreen:         (s) => set({ screen: s }),
-  setHandsData:      (d) => set({ handsData: d }),
-  setPinchLabel:     (label) => set({ pinchLabel: label }),
-  setHandPositions:  () => {},   // no-op, superseded by setHandsData
+  setHandsData:        (d) => set({ handsData: d }),
+  setPinchLabel:       (label) => set({ pinchLabel: label }),
+  setHandControlState: (hand, hovered, grabbed) =>
+    set(hand === 'left'
+      ? { hoveredControlLeft: hovered,  grabbedControlLeft: grabbed  }
+      : { hoveredControlRight: hovered, grabbedControlRight: grabbed }),
+  setHandPositions:    () => {},
 }))
