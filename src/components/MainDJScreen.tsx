@@ -1,4 +1,5 @@
 import { BookOpen, Settings } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { useDJStore } from '../store/djStore'
 import { Deck } from './Deck'
 import { Mixer } from './Mixer'
@@ -6,8 +7,19 @@ import { EffectPad } from './EffectPad'
 import { MotionCamera } from './MotionCamera'
 import { MotionCursorOverlay } from './MotionCursorOverlay'
 
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() => window.innerWidth < 700)
+  useEffect(() => {
+    const fn = () => setMobile(window.innerWidth < 700)
+    window.addEventListener('resize', fn)
+    return () => window.removeEventListener('resize', fn)
+  }, [])
+  return mobile
+}
+
 export function MainDJScreen() {
   const { setScreen, motionEnabled, motionQuality } = useDJStore()
+  const isMobile = useIsMobile()
 
   const qualityColor =
     motionQuality > 0.7 ? '#22C55E' :
@@ -61,26 +73,35 @@ export function MainDJScreen() {
         </div>
       </header>
 
-      {/* 3-column layout: Deck A | Mixer | Deck B */}
+      {/* Layout: 3-col on desktop, 2-col decks + full-width mixer on mobile */}
       <div style={{
         flex: 1,
         overflowY: 'auto',
-        padding: '12px',
+        padding: '10px',
         display: 'grid',
         gap: '10px',
-        gridTemplateColumns: 'minmax(0, 1fr) 260px minmax(0, 1fr)',
-        gridTemplateRows: 'auto auto',
+        gridTemplateColumns: isMobile
+          ? '1fr 1fr'
+          : 'minmax(0, 1fr) 260px minmax(0, 1fr)',
         alignContent: 'start',
       }}>
-        {/* Row 1 */}
-        <Deck deckId="A" />
-        <Mixer />
-        <Deck deckId="B" />
-
-        {/* Row 2: Effects full width */}
-        <div style={{ gridColumn: '1 / -1' }}>
-          <EffectPad />
-        </div>
+        {isMobile ? (
+          <>
+            {/* Mobile: decks side-by-side, then mixer full-width */}
+            <Deck deckId="A" />
+            <Deck deckId="B" />
+            <div style={{ gridColumn: '1 / -1' }}><Mixer /></div>
+            <div style={{ gridColumn: '1 / -1' }}><EffectPad /></div>
+          </>
+        ) : (
+          <>
+            {/* Desktop: Deck A | Mixer | Deck B */}
+            <Deck deckId="A" />
+            <Mixer />
+            <Deck deckId="B" />
+            <div style={{ gridColumn: '1 / -1' }}><EffectPad /></div>
+          </>
+        )}
       </div>
 
       {/* Hidden camera auto-starts motion tracking */}

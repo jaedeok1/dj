@@ -56,10 +56,10 @@ export function Deck({ deckId }: Props) {
       background: '#1a1a2e',
       border: `1px solid ${color}30`,
       borderRadius: '12px',
-      padding: '14px',
+      padding: 'clamp(8px, 3vw, 14px)',
       display: 'flex',
       flexDirection: 'column',
-      gap: '12px',
+      gap: '10px',
       boxShadow: `0 0 24px ${color}15`,
     }}>
       {/* Header */}
