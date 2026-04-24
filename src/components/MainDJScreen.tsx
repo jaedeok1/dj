@@ -68,7 +68,7 @@ export function MainDJScreen() {
         padding: '12px',
         display: 'grid',
         gap: '10px',
-        gridTemplateColumns: 'minmax(0, 1fr) 170px minmax(0, 1fr)',
+        gridTemplateColumns: 'minmax(0, 1fr) 260px minmax(0, 1fr)',
         gridTemplateRows: 'auto auto',
         alignContent: 'start',
       }}>

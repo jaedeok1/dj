@@ -46,10 +46,10 @@ export function Mixer() {
       background: '#1a1a2e',
       border: '1px solid #312E81',
       borderRadius: '12px',
-      padding: '12px',
+      padding: '14px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '10px',
+      gap: '14px',
       alignItems: 'stretch',
     }}>
       <span style={{
@@ -76,7 +76,7 @@ export function Mixer() {
             value={decks.A.eq[band]}
             onChange={(v) => setDeckEQ('A', band, v)}
             color="#22C55E"
-            size={44}
+            size={52}
           />
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
             <span style={{ fontSize: '9px', color: '#4B5563', letterSpacing: '1px' }}>{label}</span>
@@ -88,7 +88,7 @@ export function Mixer() {
             value={decks.B.eq[band]}
             onChange={(v) => setDeckEQ('B', band, v)}
             color="#4338CA"
-            size={44}
+            size={52}
           />
         </div>
       ))}
@@ -106,7 +106,7 @@ export function Mixer() {
               min={0} max={1} step={0.01}
               value={decks.A.volume}
               onChange={(e) => setDeckVolume('A', parseFloat(e.target.value))}
-              style={{ height: '100px', accentColor: '#22C55E' }}
+              style={{ height: '120px', accentColor: '#22C55E' }}
               aria-label="덱 A 볼륨"
             />
           </div>
@@ -124,7 +124,7 @@ export function Mixer() {
               min={0} max={1} step={0.01}
               value={decks.B.volume}
               onChange={(e) => setDeckVolume('B', parseFloat(e.target.value))}
-              style={{ height: '100px', accentColor: '#4338CA' }}
+              style={{ height: '120px', accentColor: '#4338CA' }}
               aria-label="덱 B 볼륨"
             />
           </div>
