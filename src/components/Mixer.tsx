@@ -99,7 +99,7 @@ export function Mixer() {
           <span style={{ fontSize: '10px', color: '#22C55E', fontWeight: 600 }}>
             {Math.round(decks.A.volume * 100)}
           </span>
-          <div ref={volARef} style={{ display: 'flex', justifyContent: 'center' }}>
+          <div ref={volARef} style={{ display: 'flex', justifyContent: 'center', width: '48px' }}>
             <input
               type="range"
               className="vertical-slider"
@@ -117,7 +117,7 @@ export function Mixer() {
           <span style={{ fontSize: '10px', color: '#4338CA', fontWeight: 600 }}>
             {Math.round(decks.B.volume * 100)}
           </span>
-          <div ref={volBRef} style={{ display: 'flex', justifyContent: 'center' }}>
+          <div ref={volBRef} style={{ display: 'flex', justifyContent: 'center', width: '48px' }}>
             <input
               type="range"
               className="vertical-slider"

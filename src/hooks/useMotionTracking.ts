@@ -104,7 +104,8 @@ export function useMotionTracking(videoRef: React.RefObject<HTMLVideoElement | n
         // Padding: generous for small knobs/turntables, tight for wide sliders
         const pad =
           ctrl.type === 'knob'      ? 22 :
-          ctrl.type === 'turntable' ? 24 : 10
+          ctrl.type === 'turntable' ? 24 :
+          ctrl.type === 'slider-v'  ? 36 : 10
         const inBounds =
           ix >= rect.left   - pad &&
           ix <= rect.right  + pad &&
