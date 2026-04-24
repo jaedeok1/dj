@@ -67,9 +67,20 @@ class AudioEngine {
   async loadTrack(deckId: string, file: File): Promise<number> {
     const deck = this.decks[deckId]
     if (!deck) return 0
-
     const arrayBuffer = await file.arrayBuffer()
     const audioBuffer = await Tone.getContext().rawContext.decodeAudioData(arrayBuffer)
+    const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer)
+    deck.player.buffer = toneBuffer
+    return audioBuffer.duration
+  }
+
+  async loadTrackFromUrl(deckId: string, url: string): Promise<number> {
+    const deck = this.decks[deckId]
+    if (!deck) return 0
+    const res = await fetch(url)
+    const arrayBuffer = await res.arrayBuffer()
+    const ctx = Tone.getContext().rawContext as AudioContext
+    const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
     const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer)
     deck.player.buffer = toneBuffer
     return audioBuffer.duration

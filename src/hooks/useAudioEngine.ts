@@ -12,6 +12,19 @@ export function useAudioEngine() {
     initRef.current = true
     audioEngine.createDeck('A')
     audioEngine.createDeck('B')
+
+    const loadDefault = async (deckId: 'A' | 'B', url: string, name: string) => {
+      try {
+        const duration = await audioEngine.loadTrackFromUrl(deckId, url)
+        useDJStore.getState().setDeckTrack(deckId, null, name)
+        useDJStore.getState().setDeckProgress(deckId, 0, duration)
+      } catch (e) {
+        console.warn(`[default track] failed to load ${url}`, e)
+      }
+    }
+
+    loadDefault('A', '/music/My_Love_-_MODUS.mp3',                        'My Love - MODUS')
+    loadDefault('B', '/music/Sweet_Orange_Music_-_Lets_Play_a_Game.mp3',   "Let's Play a Game")
   }, [])
 
   const init = useCallback(async () => {
