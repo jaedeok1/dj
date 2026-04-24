@@ -5,7 +5,11 @@ import { controlRegistry } from '../lib/controlRegistry'
 import type { HandLandmark } from '../store/djStore'
 import { useDJStore } from '../store/djStore'
 
-const WASM_BASE = '/wasm'
+// Local /wasm used in dev (copied from node_modules).
+// CDN fallback for production where public/wasm/ is gitignored.
+const WASM_BASE = import.meta.env.DEV
+  ? '/wasm'
+  : 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm'
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task'
 
