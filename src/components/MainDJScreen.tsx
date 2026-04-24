@@ -4,6 +4,7 @@ import { Deck } from './Deck'
 import { Crossfader } from './Crossfader'
 import { EffectPad } from './EffectPad'
 import { MotionCamera } from './MotionCamera'
+import { MotionCursorOverlay } from './MotionCursorOverlay'
 
 export function MainDJScreen() {
   const { setScreen } = useDJStore()
@@ -104,6 +105,9 @@ export function MainDJScreen() {
         {/* Motion camera */}
         <MotionCamera />
       </div>
+
+      {/* Full-screen hand cursor overlay */}
+      <MotionCursorOverlay />
     </div>
   )
 }
