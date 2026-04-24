@@ -1,15 +1,29 @@
-import { useRef, useCallback, useState } from 'react'
+import { useRef, useCallback, useState, useEffect } from 'react'
 import { Camera, CameraOff, Zap, ZapOff, Loader2, AlertTriangle } from 'lucide-react'
 import { useDJStore } from '../store/djStore'
 import { useMotionTracking } from '../hooks/useMotionTracking'
+import { HandOverlay } from './HandOverlay'
 
 export function MotionCamera() {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const store    = useDJStore()
+  const videoRef      = useRef<HTMLVideoElement>(null)
+  const containerRef  = useRef<HTMLDivElement>(null)
+  const store         = useDJStore()
   const { initLandmarker, startCamera, stopCamera } = useMotionTracking(videoRef)
 
-  const [loading, setLoading] = useState(false)
-  const [error,   setError  ] = useState<string | null>(null)
+  const [loading,  setLoading ] = useState(false)
+  const [error,    setError   ] = useState<string | null>(null)
+  const [dispSize, setDispSize] = useState({ w: 320, h: 240 })
+
+  // Track rendered video size for the overlay canvas
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      setDispSize({ w: el.clientWidth, h: el.clientHeight })
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   const handleEnable = useCallback(async () => {
     setLoading(true)
@@ -30,7 +44,7 @@ export function MotionCamera() {
     stopCamera()
     store.setMotionEnabled(false)
     store.setMotionQuality(0)
-    store.setHandPositions(null, null)
+    store.setHandsData({ left: null, right: null, leftPinch: false, rightPinch: false })
     setError(null)
   }, [stopCamera, store])
 
@@ -39,11 +53,14 @@ export function MotionCamera() {
     store.motionQuality > 0.3 ? '#F59E0B' : '#EF4444'
 
   const modes: Array<{ key: typeof store.motionMode; label: string; desc: string }> = [
-    { key: 'crossfader', label: '크로스페이더', desc: '손 좌우 이동' },
-    { key: 'volume',     label: '볼륨',        desc: '손 높낮이'    },
-    { key: 'eq',         label: 'EQ',          desc: '손목 기울기'  },
+    { key: 'crossfader', label: '크로스페이더', desc: '핀치 후 회전' },
+    { key: 'volume',     label: '볼륨',        desc: '핀치 후 회전' },
+    { key: 'eq',         label: 'EQ',          desc: '핀치 후 회전' },
     { key: 'scratch',    label: '스크래치',     desc: '손 빠른 이동' },
   ]
+
+  const { handsData, pinchLabel } = store
+  const anyPinch = handsData.leftPinch || handsData.rightPinch
 
   return (
     <div style={{
@@ -83,8 +100,7 @@ export function MotionCamera() {
           >
             {loading
               ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
-              : store.motionEnabled ? <Camera size={14} /> : <CameraOff size={14} />
-            }
+              : store.motionEnabled ? <Camera size={14} /> : <CameraOff size={14} />}
           </button>
         </div>
       </div>
@@ -92,72 +108,107 @@ export function MotionCamera() {
       {/* Error */}
       {error && (
         <div style={{
-          background: '#EF444420',
-          border: '1px solid #EF444460',
-          borderRadius: '6px',
-          padding: '8px',
-          display: 'flex',
-          gap: '6px',
-          alignItems: 'flex-start',
+          background: '#EF444420', border: '1px solid #EF444460',
+          borderRadius: '6px', padding: '8px',
+          display: 'flex', gap: '6px', alignItems: 'flex-start',
         }}>
           <AlertTriangle size={12} color="#EF4444" style={{ flexShrink: 0, marginTop: 1 }} />
           <span style={{ fontSize: '11px', color: '#FCA5A5', lineHeight: 1.4 }}>{error}</span>
         </div>
       )}
 
-      {/* Video feed */}
-      <div style={{
-        position: 'relative',
-        borderRadius: '8px',
-        overflow: 'hidden',
-        background: '#0F0F23',
-        aspectRatio: '4/3',
-        border: '1px solid #27273B',
-      }}>
+      {/* Video + overlay */}
+      <div
+        ref={containerRef}
+        style={{
+          position: 'relative',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          background: '#0F0F23',
+          aspectRatio: '4/3',
+          border: `1px solid ${anyPinch ? '#FBBF24' : '#27273B'}`,
+          transition: 'border-color 0.15s',
+          boxShadow: anyPinch ? '0 0 12px #FBBF2440' : 'none',
+        }}
+      >
         <video
           ref={videoRef}
-          autoPlay
-          muted
-          playsInline
+          autoPlay muted playsInline
           style={{
-            width: '100%',
-            height: '100%',
+            width: '100%', height: '100%',
             objectFit: 'cover',
-            transform: 'scaleX(-1)',           // mirror so user sees natural view
+            transform: 'scaleX(-1)',
             display: store.motionEnabled ? 'block' : 'none',
           }}
         />
 
+        {/* Hand skeleton overlay */}
+        {store.motionEnabled && (
+          <HandOverlay
+            leftLandmarks={handsData.left}
+            rightLandmarks={handsData.right}
+            leftPinch={handsData.leftPinch}
+            rightPinch={handsData.rightPinch}
+            width={dispSize.w}
+            height={dispSize.h}
+          />
+        )}
+
+        {/* Pinch label badge */}
+        {anyPinch && pinchLabel && (
+          <div style={{
+            position: 'absolute',
+            bottom: 6, left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#FBBF2420',
+            border: '1px solid #FBBF2480',
+            borderRadius: '99px',
+            padding: '2px 10px',
+            fontSize: '10px',
+            color: '#FBBF24',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+          }}>
+            ✊ {pinchLabel}
+          </div>
+        )}
+
         {!store.motionEnabled && !loading && (
           <div style={{
             position: 'absolute', inset: 0,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
             gap: '8px', color: '#4B5563',
           }}>
             <CameraOff size={28} />
-            <span style={{ fontSize: '11px' }}>카메라 버튼을 눌러 모션 인식 시작</span>
+            <span style={{ fontSize: '11px' }}>카메라 켜기 → 모션 인식 시작</span>
           </div>
         )}
 
         {loading && (
           <div style={{
             position: 'absolute', inset: 0,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
             gap: '8px', background: '#0F0F23CC',
           }}>
             <Loader2 size={28} color="#4338CA" style={{ animation: 'spin 1s linear infinite' }} />
             <span style={{ fontSize: '11px', color: '#9CA3AF' }}>모델 로딩 중…</span>
           </div>
         )}
-
-        {/* Hand position dots (already mirror-corrected in hook) */}
-        {store.motionEnabled && store.leftHandPos && (
-          <HandDot x={store.leftHandPos.x} y={store.leftHandPos.y} color="#22C55E" label="A" />
-        )}
-        {store.motionEnabled && store.rightHandPos && (
-          <HandDot x={store.rightHandPos.x} y={store.rightHandPos.y} color="#4338CA" label="B" />
-        )}
       </div>
+
+      {/* Gesture guide */}
+      {store.motionEnabled && (
+        <div style={{
+          background: '#27273B', borderRadius: '6px', padding: '6px 8px',
+          fontSize: '10px', color: '#9CA3AF', lineHeight: 1.5,
+        }}>
+          <span style={{ color: '#FBBF24' }}>✊ 핀치</span>
+          {' '}(엄지+검지 모으기) 후 손목 회전 →{' '}
+          <span style={{ color: '#F8FAFC' }}>{modes.find(m => m.key === store.motionMode)?.label}</span> 조절
+        </div>
+      )}
 
       {/* Mode selector */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
@@ -169,13 +220,11 @@ export function MotionCamera() {
               onClick={() => store.setMotionMode(m.key)}
               title={m.desc}
               style={{
-                padding: '5px 6px',
-                borderRadius: '6px',
+                padding: '5px 6px', borderRadius: '6px',
                 border: `1px solid ${active ? '#4338CA' : '#27273B'}`,
                 background: active ? '#4338CA20' : 'transparent',
                 color: active ? '#F8FAFC' : '#6B7280',
-                fontSize: '10px',
-                cursor: 'pointer',
+                fontSize: '10px', cursor: 'pointer',
                 transition: 'all 0.15s',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px',
               }}
@@ -186,37 +235,6 @@ export function MotionCamera() {
           )
         })}
       </div>
-
-      {/* Current mode hint */}
-      {store.motionEnabled && (
-        <div style={{
-          fontSize: '10px', color: '#6B7280', textAlign: 'center',
-          background: '#27273B', borderRadius: '4px', padding: '4px 6px',
-        }}>
-          {modes.find(m => m.key === store.motionMode)?.desc} → {modes.find(m => m.key === store.motionMode)?.label} 조절
-        </div>
-      )}
-    </div>
-  )
-}
-
-function HandDot({ x, y, color, label }: { x: number; y: number; color: string; label: string }) {
-  return (
-    <div style={{
-      position: 'absolute',
-      left: `${x * 100}%`,
-      top:  `${y * 100}%`,
-      transform: 'translate(-50%, -50%)',
-      pointerEvents: 'none',
-    }}>
-      <div style={{
-        width: 16, height: 16,
-        borderRadius: '50%',
-        background: color,
-        boxShadow: `0 0 10px ${color}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: '8px', fontWeight: 700, color: '#0F0F23',
-      }}>{label}</div>
     </div>
   )
 }
