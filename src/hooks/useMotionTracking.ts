@@ -91,6 +91,7 @@ export function useMotionTracking(videoRef: React.RefObject<HTMLVideoElement | n
     const H = window.innerHeight
 
     // Hit test: which control is the index finger over?
+    // Use bounding-rect intersection to avoid wide controls (crossfader) claiming huge areas.
     const hitTest = (lm: HandLandmark[] | null): string | null => {
       if (!lm) return null
       const ix = lm[8].x * W
@@ -100,11 +101,20 @@ export function useMotionTracking(videoRef: React.RefObject<HTMLVideoElement | n
       for (const ctrl of controlRegistry.getAll()) {
         const rect = ctrl.getRect()
         if (!rect) continue
+        // Padding: generous for small knobs/turntables, tight for wide sliders
+        const pad =
+          ctrl.type === 'knob'      ? 22 :
+          ctrl.type === 'turntable' ? 24 : 10
+        const inBounds =
+          ix >= rect.left   - pad &&
+          ix <= rect.right  + pad &&
+          iy >= rect.top    - pad &&
+          iy <= rect.bottom + pad
+        if (!inBounds) continue
         const cx = rect.left + rect.width  / 2
         const cy = rect.top  + rect.height / 2
         const d  = Math.hypot(ix - cx, iy - cy)
-        const radius = Math.max(rect.width, rect.height) * 0.65 + 30
-        if (d < radius && d < bestDist) { bestDist = d; best = ctrl.id }
+        if (d < bestDist) { bestDist = d; best = ctrl.id }
       }
       return best
     }
